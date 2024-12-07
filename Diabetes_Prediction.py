@@ -16,21 +16,10 @@ with open('Diabetes_Prediction_Model.pkl', 'rb') as model_file:
 # Load the preprocessed dataset to fit the scaler
 data = pd.read_csv('preprocessed_diabetes_data.csv')
 
-# Display the columns to debug
-st.write("Available columns in the dataset:")
-st.write(data.columns)
-
-# Check for missing values
-st.write("Missing values in the dataset:")
-st.write(data.isnull().sum())
-
 # Initialize the scaler
 scaler = StandardScaler()
-
-# Update numerical features based on available columns
-numerical_features = ['age', 'bmi', 'HbA1c_level', 'blood_glucose_level']  # Check the available columns
-
 # Fit the scaler on numerical features
+numerical_features = ['age', 'bmi', 'HbA1c_level', 'blood_glucose_level']
 scaler.fit(data[numerical_features])
 
 # Streamlit application for Diabetes Prediction
@@ -62,7 +51,7 @@ def main():
     }[smoking_history]
 
     # Create feature vector
-    inputs = np.array([[age, bmi, HbA1c_level, blood_glucose_level]])  # Add the necessary features
+    inputs = np.array([[age, bmi, HbA1c_level, blood_glucose_level]])
     scaled_inputs = scaler.transform(inputs)
     feature_vector = np.concatenate(([gender_numeric, hypertension_numeric, heart_disease_numeric, smoking_history_numeric], scaled_inputs.flatten())).reshape(1, -1)
 
