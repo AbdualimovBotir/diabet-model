@@ -6,130 +6,167 @@ from sklearn.preprocessing import StandardScaler
 from fpdf import FPDF
 import matplotlib.pyplot as plt
 import io
+import base64
 import tempfile
 
-# Model va skalerni yuklash
-try:
-    with open('Diabetes_Prediction_Model.pkl', 'rb') as model_file:
-        model = pickle.load(model_file)
-    with open('scaler.pkl', 'rb') as scaler_file:
-        scaler = pickle.load(scaler_file)
-except FileNotFoundError as e:
-    st.error(f"Fayl topilmadi: {e}")
-    st.stop()
+# Load the trained model and scaler
+with open('Diabetes_Prediction_Model.pkl', 'rb') as model_file:
+    model = pickle.load(model_file)
 
-# Streamlit ilovasi
+# Load the preprocessed dataset to fit the scaler
+data = pd.read_csv('preprocessed_diabetes_data.csv')
+
+# Initialize the scaler
+scaler = StandardScaler()
+# Fit the scaler on numerical features
+numerical_features = ['age', 'bmi', 'HbA1c_level', 'blood_glucose_level']
+scaler.fit(data[numerical_features])
+
+# Streamlit application for Diabetes Prediction
 def main():
-    st.title("Diabetni Bashorat Qilish Ilovasi")
-    
-    # Foydalanuvchi kiritishlari
-    name = st.text_input("Ismingizni kiriting")
-    gender = st.selectbox("Jinsingiz", ("Erkak", "Ayol"))
-    age = st.number_input("Yoshingiz", min_value=0.0, max_value=120.0, value=30.0, step=1.0)
-    hypertension = st.selectbox("Gipertenziya", ("Yo'q", "Bor"))
-    heart_disease = st.selectbox("Yurak kasalligi", ("Yo'q", "Bor"))
-    smoking_history = st.selectbox("Chekish tarixi", ("Chekmagan", "Chekayotgan", "Avval chekkan", "Ma'lumot yo'q", "Hozirda chekmaydi"))
-    bmi = st.number_input("BMI (Tana Massasi Indeksi)", min_value=10.0, max_value=100.0, value=25.0, step=0.1)
-    HbA1c_level = st.number_input("HbA1c darajasi", min_value=3.5, max_value=9.0, value=5.5, step=0.1)
-    blood_glucose_level = st.number_input("Qondagi glyukoza darajasi", min_value=80, max_value=300, value=140, step=1)
-    
-    # Kategoriyalarni raqamlarga aylantirish
-    gender_numeric = 1 if gender == "Erkak" else 0
-    hypertension_numeric = 1 if hypertension == "Bor" else 0
-    heart_disease_numeric = 1 if heart_disease == "Bor" else 0
-    smoking_mapping = {
-        "Chekmagan": 0,
-        "Chekayotgan": 1,
-        "Avval chekkan": 2,
-        "Ma'lumot yo'q": 3,
-        "Hozirda chekmaydi": 4
-    }
-    smoking_history_numeric = smoking_mapping[smoking_history]
-    
-    # Xususiyatlar vektori
+    st.title("Diabetes Prediction App")
+
+    # User inputs
+    name = st.text_input("Enter Name")
+    gender = st.selectbox("Gender", ("Male", "Female"))
+    age = st.number_input("Age", min_value=0.0, max_value=120.0, value=30.0, step=1.0)
+    hypertension = st.selectbox("Hypertension", ("No", "Yes"))
+    heart_disease = st.selectbox("Heart Disease", ("No", "Yes"))
+    smoking_history = st.selectbox("Smoking History", ("never", "current", "formerly", "No Info", "ever", "not current"))
+    bmi = st.number_input("BMI", min_value=10.0, max_value=100.0, value=25.0, step=0.1)
+    HbA1c_level = st.number_input("HbA1c Level", min_value=3.5, max_value=9.0, value=5.5, step=0.1)
+    blood_glucose_level = st.number_input("Blood Glucose Level", min_value=80, max_value=300, value=140, step=1)
+
+    # Convert categorical inputs to numeric
+    gender_numeric = 1 if gender == "Male" else 0
+    hypertension_numeric = 1 if hypertension == "Yes" else 0
+    heart_disease_numeric = 1 if heart_disease == "Yes" else 0
+    smoking_history_numeric = {
+        "never": 0,
+        "current": 1,
+        "formerly": 2,
+        "No Info": 3,
+        "ever": 4,
+        "not current": 5
+    }[smoking_history]
+
+    # Create feature vector
     inputs = np.array([[age, bmi, HbA1c_level, blood_glucose_level]])
     scaled_inputs = scaler.transform(inputs)
     feature_vector = np.concatenate(([gender_numeric, hypertension_numeric, heart_disease_numeric, smoking_history_numeric], scaled_inputs.flatten())).reshape(1, -1)
-    
-    # Bashorat qilish
-    if st.button("Bashorat qilish"):
+
+    # Prediction
+    if st.button("Predict"):
         prediction = model.predict(feature_vector)
-        result = "Diabetik" if prediction[0] == 1 else "Sog'lom"
-        name_prefix = "Janob" if gender == "Erkak" else "Xonim"
-        
-        # Tibbiy hisobotni ko'rsatish
-        st.markdown(f"### {name_prefix} {name} uchun Tibbiy Hisobot")
-        st.markdown(f"""
-            **Ism:** {name_prefix} {name}  
-            **Jinsi:** {gender}  
-            **Yoshi:** {age}  
-            **Gipertenziya:** {hypertension}  
-            **Yurak Kasalligi:** {heart_disease}  
-            **Chekish Tarixi:** {smoking_history}  
+        result = "Diabetic" if prediction[0] == 1 else "Non-Diabetic"
+        name_prefix = "Mr." if gender == "Male" else "Ms." if gender == "Female" else ""
+
+        # Display the medical report
+        st.markdown(f"### Medical Report for {name_prefix} {name}")
+        st.markdown(
+            f"""
+            **Patient Name:** {name_prefix} {name}  
+            **Gender:** {gender}  
+            **Age:** {age}  
+            **Hypertension:** {hypertension}  
+            **Heart Disease:** {heart_disease}  
+            **Smoking History:** {smoking_history}  
             **BMI:** {bmi}  
-            **HbA1c Darajasi:** {HbA1c_level}  
-            **Qondagi Glyukoza Darajasi:** {blood_glucose_level}  
-        """, unsafe_allow_html=True)
-        st.markdown(f"### Bashorat: **{result}**", unsafe_allow_html=True)
+            **HbA1c Level:** {HbA1c_level}  
+            **Blood Glucose Level:** {blood_glucose_level}  
+            """, unsafe_allow_html=True
+        )
+
+        # Highlight the prediction result
+        st.markdown(f"### <span style='color:maroon;'>Prediction: {result}</span>", unsafe_allow_html=True)
         
-        # PDF va rasm generatsiyasi
+        # Print the personalized message
+        if result == "Diabetic":
+            message = "Take Care of your Health, Have a NICE Day"
+        else:
+            message = "Congrats! You seem to be Healthy, Have a NICE Day"
+
+        st.markdown(f"#### {message}", unsafe_allow_html=True)
+
+        # Generate and display PDF
         pdf_buffer = generate_pdf(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, result)
-        st.download_button(label="PDF-ni yuklab olish", data=pdf_buffer, file_name='Tibbiy_Hisobot.pdf', mime='application/pdf')
-        
+        st.download_button(label="Download PDF", data=pdf_buffer, file_name='Medical_Report.pdf', mime='application/pdf')
+
+        # Generate and display Image
         img_buffer = generate_image(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, result)
-        st.download_button(label="Rasmni yuklab olish", data=img_buffer, file_name='Tibbiy_Hisobot.png', mime='image/png')
+        st.download_button(label="Download Image", data=img_buffer, file_name='Medical_Report.png', mime='image/png')
 
 def generate_pdf(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, result):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
-    name_prefix = "Janob" if gender == "Erkak" else "Xonim"
+    
+    name_prefix = "Mr." if gender == "Male" else "Ms." if gender == "Female" else ""
     pdf.set_font("Arial", size=16)
-    pdf.cell(200, 10, txt=f"Tibbiy Hisobot - {name_prefix} {name}", ln=True, align='C')
+    pdf.cell(200, 10, txt=f"Medical Report for {name_prefix} {name}", ln=True, align='C')
     pdf.ln(10)
+    
     report_data = [
-        ("Ism", f"{name_prefix} {name}"),
-        ("Jinsi", gender),
-        ("Yoshi", age),
-        ("Gipertenziya", hypertension),
-        ("Yurak Kasalligi", heart_disease),
-        ("Chekish Tarixi", smoking_history),
+        ("Patient Name", f"{name_prefix} {name}"),
+        ("Gender", gender),
+        ("Age", age),
+        ("Hypertension", hypertension),
+        ("Heart Disease", heart_disease),
+        ("Smoking History", smoking_history),
         ("BMI", bmi),
-        ("HbA1c Darajasi", HbA1c_level),
-        ("Qondagi Glyukoza Darajasi", blood_glucose_level),
-        ("Bashorat", result)
+        ("HbA1c Level", HbA1c_level),
+        ("Blood Glucose Level", blood_glucose_level),
+        ("Prediction", result)
     ]
+    
     pdf.set_font("Arial", size=12)
     for key, value in report_data:
         pdf.cell(200, 10, txt=f"{key}: {value}", ln=True, align='L')
+    
+    # Save PDF to a temporary file
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
     pdf.output(temp_file.name)
+    
+    # Read the file into a BytesIO object
+    pdf_buffer = io.BytesIO()
     with open(temp_file.name, 'rb') as f:
-        pdf_buffer = f.read()
+        pdf_buffer.write(f.read())
+    pdf_buffer.seek(0)
+    
+    # Clean up the temporary file
     temp_file.close()
-    return pdf_buffer
+    
+    return pdf_buffer.getvalue()
 
 def generate_image(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, result):
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.axis('off')
-    name_prefix = "Janob" if gender == "Erkak" else "Xonim"
+    
+    name_prefix = "Mr." if gender == "Male" else "Ms." if gender == "Female" else ""
     report_text = (
-        f"Tibbiy Hisobot - {name_prefix} {name}\n\n"
-        f"Ism: {name_prefix} {name}\n"
-        f"Jinsi: {gender}\n"
-        f"Yoshi: {age}\n"
-        f"Gipertenziya: {hypertension}\n"
-        f"Yurak Kasalligi: {heart_disease}\n"
-        f"Chekish Tarixi: {smoking_history}\n"
+        f"Medical Report for {name_prefix} {name}\n\n"
+        f"Patient Name: {name_prefix} {name}\n"
+        f"Gender: {gender}\n"
+        f"Age: {age}\n"
+        f"Hypertension: {hypertension}\n"
+        f"Heart Disease: {heart_disease}\n"
+        f"Smoking History: {smoking_history}\n"
         f"BMI: {bmi}\n"
-        f"HbA1c Darajasi: {HbA1c_level}\n"
-        f"Qondagi Glyukoza Darajasi: {blood_glucose_level}\n\n"
-        f"Bashorat: {result}"
+        f"HbA1c Level: {HbA1c_level}\n"
+        f"Blood Glucose Level: {blood_glucose_level}\n\n"
+        f"Prediction: {result}"
     )
-    ax.text(0.5, 0.5, report_text, fontsize=10, ha='center', va='center', wrap=True)
+    
+    plt.text(0.5, 0.95, report_text, fontsize=12, ha='center', va='top', color='black', wrap=True)
+    plt.text(0.5, 0.1, f"{result} - {'Take Care of your Health, Have a NICE Day' if result == 'Diabetic' else 'Congrats! You seem to be Healthy, Have a NICE Day'}", 
+             fontsize=14, ha='center', va='top', color='maroon', wrap=True)
+    plt.tight_layout()
+    
+    # Save the image to a BytesIO object
     img_buffer = io.BytesIO()
     plt.savefig(img_buffer, format='png')
     img_buffer.seek(0)
+    
     return img_buffer.getvalue()
 
 if __name__ == "__main__":
