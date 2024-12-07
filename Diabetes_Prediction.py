@@ -6,7 +6,6 @@ from sklearn.preprocessing import StandardScaler
 from fpdf import FPDF
 import matplotlib.pyplot as plt
 import io
-import base64
 import tempfile
 
 # Load the trained model and scaler
@@ -112,7 +111,80 @@ def main():
         except Exception as e:
             st.error(f"An error occurred during prediction: {str(e)}")
 
-# PDF and image generation functions...
+# Function to generate PDF
+def generate_pdf(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, result):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    
+    name_prefix = "Mr." if gender == "Male" else "Ms." if gender == "Female" else ""
+    pdf.set_font("Arial", size=16)
+    pdf.cell(200, 10, txt=f"Medical Report for {name_prefix} {name}", ln=True, align='C')
+    pdf.ln(10)
+    
+    report_data = [
+        ("Patient Name", f"{name_prefix} {name}"),
+        ("Gender", gender),
+        ("Age", age),
+        ("Hypertension", hypertension),
+        ("Heart Disease", heart_disease),
+        ("Smoking History", smoking_history),
+        ("BMI", bmi),
+        ("HbA1c Level", HbA1c_level),
+        ("Blood Glucose Level", blood_glucose_level),
+        ("Prediction", result)
+    ]
+    
+    pdf.set_font("Arial", size=12)
+    for key, value in report_data:
+        pdf.cell(200, 10, txt=f"{key}: {value}", ln=True, align='L')
+    
+    # Save PDF to a temporary file
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+    pdf.output(temp_file.name)
+    
+    # Read the file into a BytesIO object
+    pdf_buffer = io.BytesIO()
+    with open(temp_file.name, 'rb') as f:
+        pdf_buffer.write(f.read())
+    pdf_buffer.seek(0)
+    
+    # Clean up the temporary file
+    temp_file.close()
+    
+    return pdf_buffer.getvalue()
+
+# Function to generate Image
+def generate_image(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, result):
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.axis('off')
+    
+    name_prefix = "Mr." if gender == "Male" else "Ms." if gender == "Female" else ""
+    report_text = (
+        f"Medical Report for {name_prefix} {name}\n\n"
+        f"Patient Name: {name_prefix} {name}\n"
+        f"Gender: {gender}\n"
+        f"Age: {age}\n"
+        f"Hypertension: {hypertension}\n"
+        f"Heart Disease: {heart_disease}\n"
+        f"Smoking History: {smoking_history}\n"
+        f"BMI: {bmi}\n"
+        f"HbA1c Level: {HbA1c_level}\n"
+        f"Blood Glucose Level: {blood_glucose_level}\n\n"
+        f"Prediction: {result}"
+    )
+    
+    plt.text(0.5, 0.95, report_text, fontsize=12, ha='center', va='top', color='black', wrap=True)
+    plt.text(0.5, 0.1, f"{result} - {'Take Care of your Health, Have a NICE Day' if result == 'Diabetic' else 'Congrats! You seem to be Healthy, Have a NICE Day'}", 
+             fontsize=14, ha='center', va='top', color='maroon', wrap=True)
+    plt.tight_layout()
+    
+    # Save the image to a BytesIO object
+    img_buffer = io.BytesIO()
+    plt.savefig(img_buffer, format='png')
+    img_buffer.seek(0)
+    
+    return img_buffer.getvalue()
 
 if __name__ == "__main__":
     main()
