@@ -16,10 +16,21 @@ with open('Diabetes_Prediction_Model.pkl', 'rb') as model_file:
 # Load the preprocessed dataset to fit the scaler
 data = pd.read_csv('preprocessed_diabetes_data.csv')
 
+# Display the columns to debug
+st.write("Available columns in the dataset:")
+st.write(data.columns)
+
+# Check for missing values
+st.write("Missing values in the dataset:")
+st.write(data.isnull().sum())
+
 # Initialize the scaler
 scaler = StandardScaler()
+
+# Update numerical features based on available columns
+numerical_features = ['age', 'bmi', 'HbA1c_level', 'blood_glucose_level']  # Check the available columns
+
 # Fit the scaler on numerical features
-numerical_features = ['age', 'bmi', 'HbA1c_level', 'blood_glucose_level', 'cholesterol', 'insulin', 'previous_diagnoses', 'other_feature_1', 'other_feature_2']  # Add all numerical features used in training
 scaler.fit(data[numerical_features])
 
 # Streamlit application for Diabetes Prediction
@@ -37,10 +48,6 @@ def main():
     HbA1c_level = st.number_input("HbA1c Level", min_value=3.5, max_value=9.0, value=5.5, step=0.1)
     blood_glucose_level = st.number_input("Blood Glucose Level", min_value=80, max_value=300, value=140, step=1)
 
-    # Add any additional features (cholesterol, insulin, etc.) if needed
-    cholesterol = st.number_input("Cholesterol Level", min_value=100, max_value=300, value=180, step=1)
-    insulin = st.number_input("Insulin Level", min_value=0, max_value=500, value=100, step=1)
-
     # Convert categorical inputs to numeric
     gender_numeric = 1 if gender == "Male" else 0
     hypertension_numeric = 1 if hypertension == "Yes" else 0
@@ -54,8 +61,8 @@ def main():
         "not current": 5
     }[smoking_history]
 
-    # Create feature vector (include all features)
-    inputs = np.array([[age, bmi, HbA1c_level, blood_glucose_level, cholesterol, insulin]])
+    # Create feature vector
+    inputs = np.array([[age, bmi, HbA1c_level, blood_glucose_level]])  # Add the necessary features
     scaled_inputs = scaler.transform(inputs)
     feature_vector = np.concatenate(([gender_numeric, hypertension_numeric, heart_disease_numeric, smoking_history_numeric], scaled_inputs.flatten())).reshape(1, -1)
 
@@ -79,8 +86,6 @@ def main():
                 **BMI:** {bmi}  
                 **HbA1c Level:** {HbA1c_level}  
                 **Blood Glucose Level:** {blood_glucose_level}  
-                **Cholesterol Level:** {cholesterol}  
-                **Insulin Level:** {insulin}  
                 """, unsafe_allow_html=True
             )
 
@@ -96,17 +101,17 @@ def main():
             st.markdown(f"#### {message}", unsafe_allow_html=True)
 
             # Generate and display PDF
-            pdf_buffer = generate_pdf(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, cholesterol, insulin, result)
+            pdf_buffer = generate_pdf(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, result)
             st.download_button(label="Download PDF", data=pdf_buffer, file_name='Medical_Report.pdf', mime='application/pdf')
 
             # Generate and display Image
-            img_buffer = generate_image(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, cholesterol, insulin, result)
+            img_buffer = generate_image(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, result)
             st.download_button(label="Download Image", data=img_buffer, file_name='Medical_Report.png', mime='image/png')
 
         except Exception as e:
-            st.error(f"An error occurred during prediction: {e}")
+            st.error(f"An error occurred during prediction: {str(e)}")
 
-def generate_pdf(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, cholesterol, insulin, result):
+def generate_pdf(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, result):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
@@ -126,8 +131,6 @@ def generate_pdf(name, gender, age, hypertension, heart_disease, smoking_history
         ("BMI", bmi),
         ("HbA1c Level", HbA1c_level),
         ("Blood Glucose Level", blood_glucose_level),
-        ("Cholesterol Level", cholesterol),
-        ("Insulin Level", insulin),
         ("Prediction", result)
     ]
     
@@ -150,7 +153,7 @@ def generate_pdf(name, gender, age, hypertension, heart_disease, smoking_history
     
     return pdf_buffer.getvalue()
 
-def generate_image(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, cholesterol, insulin, result):
+def generate_image(name, gender, age, hypertension, heart_disease, smoking_history, bmi, HbA1c_level, blood_glucose_level, result):
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.axis('off')
     
@@ -165,9 +168,7 @@ def generate_image(name, gender, age, hypertension, heart_disease, smoking_histo
         f"Smoking History: {smoking_history}\n"
         f"BMI: {bmi}\n"
         f"HbA1c Level: {HbA1c_level}\n"
-        f"Blood Glucose Level: {blood_glucose_level}\n"
-        f"Cholesterol Level: {cholesterol}\n"
-        f"Insulin Level: {insulin}\n\n"
+        f"Blood Glucose Level: {blood_glucose_level}\n\n"
         f"Prediction: {result}"
     )
     
